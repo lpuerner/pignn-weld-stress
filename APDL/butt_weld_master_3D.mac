@@ -1,0 +1,447 @@
+/clear,all
+    /output  
+    /show,term
+    /cmap
+    /reset
+    /pnum,kp,on
+    /pnum,line,on
+    /pnum,area,on
+/com
+
+!speciment/workdir
+typ			= 'y'
+concept     = 'ens'
+dimension   = '2D'
+
+!working directory
+!
+/cwd, dir_path
+
+/com,geometrie
+	!weld_ang_new = 40
+	!alpha_new = 60
+	!r_k_new = 0.2
+    !winkeldefinition
+    *afun,rad
+    pi = acos(-1)
+    *afun,deg
+
+    ! Sample ID
+    identifier = '0f85d0ec8f'
+
+    !belastung
+    !force = 10
+    !force = force_new
+
+    ! Plattenhoehe
+    t = t_new
+    !t = 25 !10-30
+
+    !Plattendicke
+    !d = d_new
+    d = 30
+
+    ! Plattenlaenge 
+    !l = l_new
+    l = 200
+
+    ! Nahtgeometrie (DIN 5817 Ordnungsnr. 502)
+	weld_ang = w_new
+    !weld_ang = 55 ! 40-60
+    b = 2*t*tan(weld_ang/2)
+
+    ! Nahtueberheohung
+    h_weld_faktor = h_new !Höhe überhöhung 0.1-0.3
+    h_weld = h_weld_faktor*b+1
+
+    ! Nahtanstiegswinkel
+	alpha = a_new
+    !alpha = 40.00 !30-50
+    spl_vec = tan(90-alpha)
+
+    ! Kerbradius
+	r_k = r_new
+    !r_k = 1  !0.01-3
+
+    ! Netzkreis um Kerbradius
+    r_k_sub = 2*r_k
+/com
+
+/com,filname
+    feature =     '%typ%_%concept%_%dimension%_%identifier%'
+    /filname,label
+/com
+
+/com, Elementgroeße
+    e_sub			= r_k/2
+    e_glob			= 3
+    trans           = 1.5
+    expnd           = 2.5
+
+    ! Tiefenunterteilung Nahtuebergang
+    n_div_toe_depth = 4
+    ! Radiusunterteilung Nahtuebergang
+    n_div_toe_rad = 4
+    ! Scale-Faktor Nahtuebergang
+    n_scale_toe = 0.5
+
+    ! Tiefenunterteilung Nahtwurzel
+    n_div_root_depth = 10
+    ! Radiusunterteilung Nahtwurzel
+    n_div_root_rad = 24
+    ! Scale-Faktor Nahtwurzel
+    n_scale_root = 0.5
+/com
+
+/prep7  
+    ! Preprocessing
+/com
+
+/com, Element- / Materialdefinition  
+    E = 200000  
+    nue = 0.3   
+    mptemp,1,0  
+    mpdata,ex,1,,E  
+    mpdata,prxy,1,,nue  
+    et,1,solid185
+/com
+
+/com, Basiskonstruktion
+    ! Erster Teil Stumpfstoss
+    blc4,0,0,(l/2)-(b/2),t
+    ! KOS für Verzug (KCS=cart)
+    clocal,11,0,l/2,t/2,0,0,0,0
+    wpcsys,11
+    ! Zweiter Teil Stumpfstoss
+    blc4,(b/2),-t/2,(l/2)-(b/2),t
+    ! Wechsel init-KOS
+    csys,0
+    wpcsys,-1
+/com
+
+/com, Nahtkonstruktion
+    k,100,(l/2),t+h_weld,0
+    lsel,NONE
+    ! Spline-Konstruktion beachten bzgl. Nahtansiegswinkel
+    ! xv1, yv1, zv1 sind Eingangsvektoren -> Tangens(alpha)
+    spline,3,100,,,,,-spl_vec,-1,0,1,0,0
+    *get,l_naht_spline_1,line,0,num,min
+    lsel,NONE
+    ! Spline-Konstruktion beachten bzgl. Nahtansiegswinkel
+    ! xv1, yv1, zv1 sind Eingangsvektoren -> Tangens(alpha)
+    spline,100,8,,,,,-1,0,0,spl_vec,-1,0
+    *get,l_naht_spline_2,line,0,num,min
+    allsel
+/com
+
+/com, Mittelteil Flaeche bilden
+    lstr,2,5
+    ksel,s,,,2,3
+    ksel,a,,,5
+    ksel,a,,,8
+    ksel,a,,,100
+    lslk,s,1
+    al,all
+    ALLSEL
+    aadd,all
+/com
+
+/com, Grobschnitt linker Stumpfstoss
+    wpoffs,kx(3)-2*t,0,0
+    wprota,0,0,90
+    asbw,all
+    wpcsys,-1
+    ! Grobschnitt rechter Stumpfstoss
+    csys,11
+    wpcsys,11
+    wpoffs,kx(8)+2*t,0,0
+    wprota,0,0,90
+    asbw,all
+    csys,0
+    wpcsys,-1
+/com
+
+/com, Nahtuebergang links
+    ! Schnittpunkt am Übergang links
+    ksel,s,,,3
+    lslk,s,0
+    ! Schnittlinien
+    *get,l_fillt_1_oben,line,0,num,max
+    *get,l_fillt_2_oben,line,0,num,min
+    ! lfillt erstellen
+    numstr,line,30
+    lfillt,l_fillt_1_oben,l_fillt_2_oben,r_k
+    ! Radiuslinie
+    lsel,s,,,30
+    lesize,all,,,n_div_toe_rad
+    *get,l_fillt_fit_oben,line,0,num,min
+    ksll,s
+    ! Keypoints Radiuslinie
+    *get,k_fillt_1_fit_oben,kp,0,num,min
+    *get,k_fillt_2_fit_oben,kp,0,num,max
+    ksel,none
+    ! Neuer KP fuer Nahtuebergangs-Drag
+    k,,kx(k_fillt_1_fit_oben),ky(k_fillt_1_fit_oben)-r_k_sub,kz(k_fillt_1_fit_oben)
+    *get,k_fillt_3_fit_oben,kp,0,num,max
+    ksel,all
+    lsel,none
+    ! Neue Linie fuer Nahtuebergangs-Drag
+    lstr,k_fillt_3_fit_oben,k_fillt_1_fit_oben
+    lesize,all,,,n_div_toe_depth,n_scale_toe
+    *get,l_toe_drag_oben,line,0,num,min
+    lsel,all
+    asel,none
+    ! Neue Flaeche fuer Nahtuebergangs-Drag
+    adrag,l_toe_drag_oben,,,,,,l_fillt_fit_oben
+    *get,a_rad_oben,area,0,num,min 
+    ALLSEL
+    asba,all,a_rad_oben,,delete,keep
+    nummrg,ALL
+/com
+
+/com, Nahtuebergang rechts
+    ! Schnittpunkt am Übergang rechts
+    ksel,s,,,8
+    lslk,s,0
+    ! Schnittlinien
+    *get,l_fillt_1_unten,line,0,num,max
+    *get,l_fillt_2_unten,line,0,num,min
+    ! lfillt erstellen
+    numstr,line,40
+    lfillt,l_fillt_1_unten,l_fillt_2_unten,r_k
+    ! Radiuslinie
+    lsel,s,,,40
+    lesize,all,,,n_div_toe_rad
+    *get,l_fillt_fit_unten,line,0,num,min
+    ksll,s
+    ! Keypoints Radiuslinie
+    *get,k_fillt_1_fit_unten,kp,0,num,min
+    *get,k_fillt_2_fit_unten,kp,0,num,max
+    ksel,none
+    ! Wenn Winkelversatz dann KOS-Wechsel
+    ! Neuer KP fuer Nahtuebergangs-Drag
+    k,,kx(k_fillt_1_fit_unten),ky(k_fillt_1_fit_unten)-r_k_sub,kz(k_fillt_1_fit_unten)
+    *get,k_fillt_3_fit_unten,kp,0,num,max
+    ksel,all
+    lsel,none
+    ! Neue Linie fuer Nahtuebergangs-Drag
+    lstr,k_fillt_3_fit_unten,k_fillt_1_fit_unten
+    lesize,all,,,n_div_toe_depth,n_scale_toe
+    *get,l_toe_drag_unten,line,0,num,min
+    lsel,all
+    asel,none
+    ! Neue Flaeche fuer Nahtuebergangs-Drag
+    adrag,l_toe_drag_unten,,,,,,l_fillt_fit_unten
+    *get,a_rad_unten,area,0,num,min 
+    ALLSEL
+    asba,all,a_rad_unten,,delete,keep
+    nummrg,ALL
+    ! Init-KOS
+    csys,0
+    wpcsys,-1
+/com
+
+/com, Extrudieren
+    lsel,none
+    k,200,0,0,0
+    k,201,0,0,d
+    lstr,200,201
+    lesize,all,,,d/e_glob
+    *get,l_extrude,line,0,num,min
+    allsel
+    VDRAG,all, , , , , ,l_extrude
+    nummrg,all
+/com
+
+/com, Vernetzung
+    allsel
+    nummrg,all
+    vsel,s,,,2,4,2
+    esize,e_sub
+    mshkey,2
+    vsweep,all
+
+    vsel,inve
+    esize,e_glob
+    mshkey,2
+    vsweep,all
+    allsel
+/com
+
+/com, Randbedingungen
+    ! Lagerung feste Einspannung
+    allsel
+    asel,s,loc,x,0
+    da,all,all,
+    allsel
+
+    ! Lasteinleitung
+    asel,s,loc,x,l
+    SFA,all,1,PRES,-1  
+    allsel
+    csys,0
+
+
+    !asel,s,loc,x,l
+    !nsla,s,1
+    !*GET,node_count,NODE,N,COUNT
+    !f,all,fx,-force/node_count
+    !allsel
+/com
+
+
+/solu
+    solve
+    save
+    finish
+/com
+
+/post1  
+    !letzter Lastschritt
+    set,last
+    ! Titel einblende
+    ! Elemntanzahl zur Pruefung 
+    !*get,e_count,elem,,count
+    plnsol,s,eqv
+    !nsort,s,eqv,0,0,1   
+    !*get,node_max_eqv,sort,,imax
+    !*get,s_eqv_max,node,node_max_eqv,s,eqv  
+    !plnsol,s,1,0,1  
+    !nsort,s,1,0,0,1 
+    !*get,node_max_s1,sort,,imax 
+    !*get,s_1_max,node,node_max_s1,s,1  
+
+    !PRNSOL
+
+    !set,last
+    ! Ausgabe Knotenverschiebung
+    !cbdof
+    !bfint,temps,node 
+    !finish                ! End of interpolation
+    !resume
+/com
+
+! Get number of nodes
+*get,nnode,node,0,count
+!nnode = 10 !For testing
+
+!*dim,x_coord,array,nnode
+!*dim,y_coord,array,nnode
+!*dim,z_coord,array,nnode
+*dim,xp_coord,array,nnode
+*dim,yp_coord,array,nnode
+*dim,zp_coord,array,nnode
+*dim,disp_x,array,nnode
+*dim,disp_y,array,nnode
+*dim,disp_z,array,nnode
+*dim,force_x,array,nnode
+*dim,force_y,array,nnode
+*dim,force_z,array,nnode
+*dim,stress_xx,array,nnode
+*dim,stress_yy,array,nnode
+*dim,stress_zz,array,nnode
+*dim,stress_xy,array,nnode
+*dim,stress_yz,array,nnode
+*dim,stress_xz,array,nnode
+*dim,stress_eqv,array,nnode
+*dim,node_id,array,nnode
+
+/prep7
+*DO, I, 1, nnode,1
+    *GET, xp_coord(I), NODE, I, LOC, X
+    *GET, yp_coord(I), NODE, I, LOC, Y
+    *GET, zp_coord(I), NODE, I, LOC, Z
+
+*ENDDO
+
+/post1
+set,last
+*DO, I, 1, nnode,1
+    node_id(I) = I 
+    !*get,x_coord(I),    node,I,loc,x
+    !*get,y_coord(I),    node,I,loc,y
+    force_x(I) = 0
+    *get,force_y(I),    node,I,f,fy
+    *get,force_z(I),    node,I,f,fz
+    *get,disp_x(I),     node,I,u,x
+    *get,disp_y(I),     node,I,u,y
+    *get,disp_z(I),     node,I,u,z
+    *get,stress_xx(I),  node,I,s,x
+    *get,stress_yy(I),  node,I,s,y
+    *get,stress_zz(I),  node,I,s,z
+    *get,stress_xy(I),  node,I,s,xy
+    *get,stress_yz(I),  node,I,s,yz
+    *get,stress_xz(I),  node,I,s,xz
+    *get,stress_eqv(I), node,I,s,eqv
+*enddo
+
+!Schreibt alle nodes mit Druck auf 1
+allsel,all
+asel,s,loc,x,l
+nsla,s
+*vget,n_list,node,0,nlist
+*get,n_list_size,PARM,n_list,DIM,1
+*do,ii,1,n_list_size
+    active_node = n_list(ii)
+    force_x(active_node) = 1 
+*enddo
+
+!Erzeugt Elementliste mit zugehörigen nodes
+*vget,e_list,elem,0,elist
+*get,e_list_size,PARM,e_list,DIM,1
+*dim,eout,array,e_list_size,10
+*do,ii,1,e_list_size
+    active_elem=e_list(ii)
+    eout(ii,1)=active_elem
+    *get,e_node_1,elem,active_elem,node,1
+    *get,e_node_2,elem,active_elem,node,2
+    *get,e_node_3,elem,active_elem,node,3
+    *get,e_node_4,elem,active_elem,node,4
+    *get,e_node_5,elem,active_elem,node,5
+    *get,e_node_6,elem,active_elem,node,6
+    *get,e_node_7,elem,active_elem,node,7
+    *get,e_node_8,elem,active_elem,node,8
+    
+    eout(ii,2)=e_node_1
+    eout(ii,3)=e_node_2
+    eout(ii,4)=e_node_3
+    eout(ii,5)=e_node_4
+    eout(ii,6)=e_node_5
+    eout(ii,7)=e_node_6
+    eout(ii,8)=e_node_7
+    eout(ii,9)=e_node_8
+*enddo
+
+*DIM,nout,,nnode,18
+*DO,i,1,nnode
+    nout(i,1) = node_id(i)
+    nout(i,2) = xp_coord(i)
+    nout(i,3) = yp_coord(i)
+    nout(i,4) = zp_coord(i)
+    nout(i,5) = disp_x(i)
+    nout(i,6) = disp_y(i)
+    nout(i,7) = disp_z(i)
+    nout(i,8) = force_x(i)
+    nout(i,9) = force_y(i)
+    nout(i,10) = force_z(i)
+    nout(i,11) = stress_xx(i)
+    nout(i,12) = stress_yy(i)
+    nout(i,13) = stress_zz(i)
+    nout(i,14) = stress_xy(i)
+    nout(i,15) = stress_yz(i)
+    nout(i,16) = stress_xz(i)
+    nout(i,17) = stress_eqv(i)
+*ENDDO
+
+NSEL,EXT
+*VGET,n_list_corner,node,,nlist
+*get,n_list_corner_len,PARM,n_list_corner,DIM,1
+*DO,i,1,n_list_corner_len
+    index = n_list_corner(i)
+    nout(index,18) = 1
+*ENDDO
+
+
+
+!Schreibt eout & nout in csv datein
+/INPUT,write_results_3D,inp !Ausgabe matrix als csv

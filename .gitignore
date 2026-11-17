@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.idea/
+.vscode/
+
+# Daten und Ergebnisse (zu groß für Git)
+solfiles/
+tmp/
+KI/
+best_model/
+res_bayes/
+DB/
+*.pt
+*.csv
+*.xlsx
+outputfile.txt
+
+# ANSYS-Arbeitsdateien
+*.db
+*.rst
+*.err
+*.log
+*.out
+*.esav
+*.full
+*.emat
+*.mntr
+*.stat
+*.lock

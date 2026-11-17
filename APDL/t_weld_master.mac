@@ -1,0 +1,339 @@
+/clear,all
+/output
+/show,term
+/cmap
+/reset
+/pnum,kp,on
+/pnum,line,on
+/pnum,area,on
+/com
+
+! working directory
+! 'dir_path' wird vom Automatisierungsskript (fem_automation/automatisierung.py) ersetzt
+  /cwd,dir_path
+
+/com
+
+!winkeldefinition
+  *afun,rad
+  pi = acos(-1)
+  *afun,deg
+
+/com
+
+/com, Genauigkeit selektion
+  seltol,0.0001
+
+/com
+
+!Test automatisierung
+!Alles was mit _new endet wird vom Pythonskript überschrieben
+!h_new = 15
+!r_new = 0.3
+!t_new = 30
+
+/com, Geom.-Daten
+  ! Grundplatte
+  l_0 = 100
+  h_0 = h_new
+
+  ! Steife
+  l_1 = 50
+  h_1 = 8
+
+  ! Tiefe
+  b_depth = 20
+
+  ! Kerbradius
+  r_k = r_new
+
+  ! Kerbradius
+  r_sub = 1+r_k
+/com
+
+/com, Nahtgeometrie
+  a = h_0
+
+  !Mit Winkelvorgabe
+  theta = t_new
+  w0 = a / sin(theta)
+  w1 = a / cos(theta)
+
+  !w0 = sqrt(2)*a
+  !w1 = sqrt(1)*a
+/com
+
+/com, Vernetzung
+  ! Radiusunterteilung
+  n_rad = 4
+  n_depth = 4
+
+  ! Vernetzung Tiefe Volumen entlang Extrude
+  n_wide = b_depth/2
+
+  ! Globale Elementgröße
+  e_glob = 1
+/com
+
+/com,filname
+  typ = 'ks'
+  label = '%typ%_%nint(a)%_%nint(l_0)%_%nint(h_0)%_%nint(l_1)%_%nint(h_1)%'
+
+  /filname,label
+/com
+
+/prep7
+  ! Preprocessing
+
+/com
+
+/com,element- / materialdefinition
+  E = 210000
+  nue = 0.3
+  mptemp,1,0
+  mpdata,ex,1,,E
+  mpdata,prxy,1,,nue
+  et,1,solid185
+
+/com
+
+/com, Bodenplatte
+  ! Geometrieparameter
+     blc4,0,0,l_0/2,h_0
+
+/com
+
+/com, Steife
+  ! Geometrieparameter
+     blc4,0,h_0,h_1/2,l_1
+
+/com
+
+/com, Nahtgeometrie
+  k,101,h_1/2,h_0+w1,0
+  k,100,h_1/2+w0,h_0
+     a,6,100,101
+  aadd,all
+  nummrg,all
+
+/com
+
+/com, Kerbradius unten
+     ksel,s,,,100
+     lslk,s,0
+     *get,line_1,line,0,num,min
+     *get,line_2,line,0,num,max
+     numstr,kp,200
+     lfillt,line_1,line_2,r_k
+     ksel,s,,,200,201
+     lslk,s,1
+     *get,l_rad,line,0,num,min
+     lesize,all,,,n_rad
+     k,,kx(201),ky(201)-r_sub,0
+     lsel,none
+     lstr,201,202
+     *get,l_drag,line,0,num,max
+     lesize,all,,,n_depth
+     allsel
+     asel,none
+     adrag,l_drag,,,,,,l_rad
+     *get,a_rad,area,0,num,min
+     allsel
+     asba,all,a_rad,,delete,keep
+     nummrg,all
+
+/com
+
+/com, Kerbradius oben
+     ksel,s,,,101
+     lslk,s,0
+     *get,line_1,line,0,num,min
+     *get,line_2,line,0,num,max
+     numstr,kp,300
+     lfillt,line_1,line_2,r_k
+     ksel,s,,,300,301
+     lslk,s,1
+     *get,l_rad,line,0,num,min
+     lesize,all,,,n_rad
+     k,,kx(301)-r_sub,ky(301),0
+     lsel,none
+     lstr,301,302
+     *get,l_drag,line,0,num,max
+     lesize,all,,,n_depth
+     allsel
+     asel,none
+     adrag,l_drag,,,,,,l_rad
+     *get,a_rad,area,0,num,min
+     allsel
+     asba,all,a_rad,,delete,keep
+     nummrg,all
+/com
+
+/com, Symmetrie
+     arsymm,x,all
+     nummrg,all
+
+/com
+
+/com, Volumenextrude
+     k,500,kx(1),ky(1),b_depth
+     lsel,none
+     lstr,1,500
+     *get,l_ext,line,0,num,min
+     lesize,all,,,n_wide
+     allsel
+     vdrag,all,,,,,,l_ext
+     vglue,all
+     nummrg,all
+
+/com
+
+/com, Vernetzung
+  esize,e_glob
+  vsweep,all
+  allsel
+
+/com
+
+/com, Randbedingungen
+  asel,s,loc,x,l_0/2
+  da,all,all
+  allsel
+
+  asel,s,loc,x,-l_0/2
+  da,all,all
+  allsel
+
+  asel,s,loc,y,h_0+l_1
+  sfa,all,,pres,-1
+  allsel
+/com
+
+/solu
+  solve
+  save
+  finish
+
+/com
+
+! Get number of nodes
+*get,nnode,node,0,count
+!nnode = 10 !For testing
+
+!*dim,x_coord,array,nnode
+!*dim,y_coord,array,nnode
+!*dim,z_coord,array,nnode
+*dim,xp_coord,array,nnode
+*dim,yp_coord,array,nnode
+*dim,zp_coord,array,nnode
+*dim,disp_x,array,nnode
+*dim,disp_y,array,nnode
+*dim,disp_z,array,nnode
+*dim,force_x,array,nnode
+*dim,force_y,array,nnode
+*dim,force_z,array,nnode
+*dim,stress_xx,array,nnode
+*dim,stress_yy,array,nnode
+*dim,stress_zz,array,nnode
+*dim,stress_xy,array,nnode
+*dim,stress_yz,array,nnode
+*dim,stress_xz,array,nnode
+*dim,stress_eqv,array,nnode
+*dim,node_id,array,nnode
+
+/prep7
+*DO, I, 1, nnode,1
+  *GET, xp_coord(I), NODE, I, LOC, X
+  *GET, yp_coord(I), NODE, I, LOC, Y
+  *GET, zp_coord(I), NODE, I, LOC, Z
+
+*ENDDO
+
+/post1
+set,last
+*DO, I, 1, nnode,1
+  node_id(I) = I
+  !*get,x_coord(I), node,I,loc,x
+  !*get,y_coord(I), node,I,loc,y
+  force_x(I) = 0
+  *get,force_y(I), node,I,f,fy
+  *get,force_z(I), node,I,f,fz
+  *get,disp_x(I), node,I,u,x
+  *get,disp_y(I), node,I,u,y
+  *get,disp_z(I), node,I,u,z
+  *get,stress_xx(I), node,I,s,x
+  *get,stress_yy(I), node,I,s,y
+  *get,stress_zz(I), node,I,s,z
+  *get,stress_xy(I), node,I,s,xy
+  *get,stress_yz(I), node,I,s,yz
+  *get,stress_xz(I), node,I,s,xz
+  *get,stress_eqv(I), node,I,s,eqv
+*enddo
+
+!Schreibt alle nodes mit Druck auf 1
+allsel,all
+asel,s,loc,x,l
+nsla,s
+*vget,n_list,node,0,nlist
+*get,n_list_size,PARM,n_list,DIM,1
+*do,ii,1,n_list_size
+  active_node = n_list(ii)
+  force_x(active_node) = 1
+*enddo
+
+!Erzeugt Elementliste mit zugehörigen nodes
+*vget,e_list,elem,0,elist
+*get,e_list_size,PARM,e_list,DIM,1
+*dim,eout,array,e_list_size,10
+*do,ii,1,e_list_size
+  active_elem=e_list(ii)
+  eout(ii,1)=active_elem
+  *get,e_node_1,elem,active_elem,node,1
+  *get,e_node_2,elem,active_elem,node,2
+  *get,e_node_3,elem,active_elem,node,3
+  *get,e_node_4,elem,active_elem,node,4
+  *get,e_node_5,elem,active_elem,node,5
+  *get,e_node_6,elem,active_elem,node,6
+  *get,e_node_7,elem,active_elem,node,7
+  *get,e_node_8,elem,active_elem,node,8
+  eout(ii,2)=e_node_1
+  eout(ii,3)=e_node_2
+  eout(ii,4)=e_node_3
+  eout(ii,5)=e_node_4
+  eout(ii,6)=e_node_5
+  eout(ii,7)=e_node_6
+  eout(ii,8)=e_node_7
+  eout(ii,9)=e_node_8
+*enddo
+
+*DIM,nout,,nnode,18
+*DO,i,1,nnode
+  nout(i,1) = node_id(i)
+  nout(i,2) = xp_coord(i)
+  nout(i,3) = yp_coord(i)
+  nout(i,4) = zp_coord(i)
+  nout(i,5) = disp_x(i)
+  nout(i,6) = disp_y(i)
+  nout(i,7) = disp_z(i)
+  nout(i,8) = force_x(i)
+  nout(i,9) = force_y(i)
+  nout(i,10) = force_z(i)
+  nout(i,11) = stress_xx(i)
+  nout(i,12) = stress_yy(i)
+  nout(i,13) = stress_zz(i)
+  nout(i,14) = stress_xy(i)
+  nout(i,15) = stress_yz(i)
+  nout(i,16) = stress_xz(i)
+  nout(i,17) = stress_eqv(i)
+*ENDDO
+
+NSEL,EXT
+*VGET,n_list_corner,node,,nlist
+*get,n_list_corner_len,PARM,n_list_corner,DIM,1
+*DO,i,1,n_list_corner_len
+  index = n_list_corner(i)
+  nout(index,18) = 1
+*ENDDO
+
+!Schreibt eout & nout in csv datein
+/INPUT,write_results_3D,inp !Ausgabe matrix als csv
